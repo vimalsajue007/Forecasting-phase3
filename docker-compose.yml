@@ -1,0 +1,55 @@
+version: "3.9"
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: forecasting_db
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: demand_forecasting
+      MYSQL_USER: forecast_user
+      MYSQL_PASSWORD: forecast_pass
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: forecasting_backend
+    environment:
+      DATABASE_URL: mysql+pymysql://forecast_user:forecast_pass@db:3306/demand_forecasting
+      SECRET_KEY: change-this-to-a-secure-secret-key-in-production
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: "30"
+      UPLOAD_DIR: /app/uploads
+    ports:
+      - "8000:8000"
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: forecasting_frontend
+    environment:
+      VITE_API_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  mysql_data:
+  uploads_data:
